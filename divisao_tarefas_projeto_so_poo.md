@@ -54,12 +54,12 @@ Para garantir que o trabalho dos três desenvolvedores se integre perfeitamente,
 
 *Foco: Sincronização, concorrência segura, modelagem orientada a objetos das entidades base.*
 
-- [ ] **Modelagem das Classes Base (`Tarefa` e `Servidor`):**
+- [X] **Modelagem das Classes Base (`Tarefa` e `Servidor`):**
   - `Tarefa`: ID, tempo de execução restante, prioridade, status (Bloqueada, Pronta, Executando, Concluída), lista de IDs de dependências.
   - `Servidor`: ID, capacidade máxima de processamento, histórico de uso, fila local de tarefas.
-- [ ] **Implementação das Threads dos Servidores:** Transformar a classe `Servidor` em uma `Thread` (ou implementar `Runnable`). Cada servidor deve monitorar continuamente sua fila interna e processar as tarefas simulando a passagem de tempo (`Thread.sleep()`).
-- [ ] **Mecanismo de Resolução de Dependências:** Criar uma classe `DependencyManager` que gerencia o ciclo de vida. Uma tarefa só pode ir para o status "Pronta" quando todas as suas tarefas pré-requisito mudarem para "Concluída".
-- [ ] **Thread-Safety (Sincronização):** Garantir que a inserção e remoção de tarefas em filas compartilhadas utilizem coleções thread-safe (`ConcurrentLinkedQueue`, `CopyOnWriteArrayList`) ou blocos `synchronized`/`ReentrantLock` para evitar *Race Conditions*.
+- [X] **Implementação das Threads dos Servidores:** Transformar a classe `Servidor` em uma `Thread` (ou implementar `Runnable`). Cada servidor deve monitorar continuamente sua fila interna e processar as tarefas simulando a passagem de tempo (`Thread.sleep()`).
+- [X] **Mecanismo de Resolução de Dependências:** Criar uma classe `DependencyManager` que gerencia o ciclo de vida. Uma tarefa só pode ir para o status "Pronta" quando todas as suas tarefas pré-requisito mudarem para "Concluída".
+- [X] **Thread-Safety (Sincronização):** Garantir que a inserção e remoção de tarefas em filas compartilhadas utilizem coleções thread-safe (`ConcurrentLinkedQueue`, `CopyOnWriteArrayList`) ou blocos `synchronized`/`ReentrantLock` para evitar *Race Conditions*.
 - [ ] **Gerador de Carga Dinâmica:** Criar uma Thread secundária encarregada de "fabricar" e injetar novas tarefas aleatórias ou pré-definidas no sistema em intervalos regulares (Chegadas Dinâmicas).
 
 ### 🧮 Desenvolvedor 3: Algoritmos de Escalonamento, Balanceamento & Métricas
