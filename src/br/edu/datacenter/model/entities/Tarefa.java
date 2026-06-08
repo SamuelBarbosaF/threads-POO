@@ -49,4 +49,8 @@ public class Tarefa {
             this.tempoExecucaoRestante = 0;
         }
     }
+
+    public synchronized void removerDependencia(int idConcluido) {
+        idsDependencias.remove(Integer.valueOf(idConcluido));
+    }
 }
