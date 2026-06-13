@@ -7,53 +7,73 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 
+/**
+ * ## GerenciadorDeDependencias
+ *
+ * Controla as tarefas que ainda nao podem executar porque dependem de outras.
+ */
 public class GerenciadorDeDependencias {
-    
-    // Lista de tarefas que ainda aguardam outras terminarem
+
+    // Lista de tarefas aguardando conclusao de dependencias.
     private final List<Tarefa> tarefasBloqueadas;
-    
-    // Fila onde as tarefas caem assim que ficam prontas (O Dev 3 vai usar isso)
+
+    // Fila para onde uma tarefa vai quando todas as dependencias terminam.
     private final BlockingQueue<Tarefa> filaGlobalDeProntos;
 
+    /**
+     * Recebe a fila global para conseguir liberar tarefas depois.
+     */
     public GerenciadorDeDependencias(BlockingQueue<Tarefa> filaGlobalDeProntos) {
+        // Inicia sem tarefas bloqueadas.
         this.tarefasBloqueadas = new ArrayList<>();
+
+        // Guarda a fila global compartilhada.
         this.filaGlobalDeProntos = filaGlobalDeProntos;
     }
 
-    // Sincronizado para garantir segurança ao adicionar novas tarefas bloqueadas
+    /**
+     * Adiciona uma tarefa na lista de bloqueadas.
+     */
     public synchronized void adicionarTarefaBloqueada(Tarefa tarefa) {
         tarefasBloqueadas.add(tarefa);
     }
 
-    // O coração do mecanismo: Sincronizado para evitar Condição de Corrida (Race Condition)
-    // entre vários Servidores tentando avisar que terminaram.
+    /**
+     * Notifica que uma tarefa terminou.
+     *
+     * Com isso, o gerenciador tenta remover essa dependencia das tarefas
+     * bloqueadas. Se alguma ficar sem dependencias, ela vira PRONTA.
+     */
     public synchronized void notificarConclusao(Tarefa tarefaConcluida) {
+        // Pega o ID da tarefa que acabou.
         int idConcluido = tarefaConcluida.getId();
-        
-        // Usamos Iterator porque vamos remover elementos da lista enquanto iteramos nela.
-        // Fazer isso com um `for` normal causaria um erro (ConcurrentModificationException).
+
+        // Iterator permite remover itens durante a iteracao.
         Iterator<Tarefa> iterator = tarefasBloqueadas.iterator();
-        
+
+        // Percorre todas as tarefas bloqueadas.
         while (iterator.hasNext()) {
+            // Pega a proxima tarefa bloqueada.
             Tarefa tarefaBloqueada = iterator.next();
-            
-            // Remove a dependência recém concluída
+
+            // Remove a dependencia que acabou de ser concluida.
             tarefaBloqueada.removerDependencia(idConcluido);
-            
-            // Verifica se esvaziou as dependências
+
+            // Se nao restam dependencias, a tarefa pode ser liberada.
             if (tarefaBloqueada.getIdsDependencias().isEmpty()) {
-                
-                // 1. Muda o status para PRONTA
+                // Atualiza o status da tarefa.
                 tarefaBloqueada.setStatus(StatusTarefa.PRONTA);
-                
-                // 2. Tira da lista de bloqueadas
-                iterator.remove(); 
-                
-                // 3. Joga na fila para o Escalonador (Dev 3) usar
+
+                // Remove da lista de bloqueadas.
+                iterator.remove();
+
+                // Coloca na fila global para o escalonador usar.
                 filaGlobalDeProntos.offer(tarefaBloqueada);
-                
-                System.out.println("[Gerenciador] Tarefa " + tarefaBloqueada.getId() + 
-                                   " resolveu suas dependências e agora está PRONTA!");
+
+                System.out.println(
+                        "[Gerenciador] Tarefa "
+                        + tarefaBloqueada.getId()
+                        + " resolveu suas dependencias e agora esta PRONTA!");
             }
         }
     }
