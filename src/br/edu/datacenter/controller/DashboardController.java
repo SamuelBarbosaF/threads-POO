@@ -29,7 +29,6 @@ public class DashboardController {
     @FXML private ListView<Tarefa> waitingQueueList;
     @FXML private AreaChart<Number,Number> waitTimeChart;
     @FXML private BarChart<String,Number> utilizationChart;
-    @FXML private TextArea summaryArea;
     @FXML private TextArea logArea;
     @FXML private Label metricConcluidas;
     @FXML private Label metricVazao;
@@ -39,6 +38,7 @@ public class DashboardController {
     @FXML private Label metricBloqueadas;
     @FXML private Label readyCountLabel;
     @FXML private Label waitingCountLabel;
+    @FXML private Label metricTotal;
 
     private int quantidadeTarefasTotal = 0;
     private int tickCount = 0;
@@ -56,8 +56,8 @@ public class DashboardController {
         utilizationChart.setAnimated(false);
         utilizationChart.getData().add(utilizationSeries);
         utilizationChart.setLegendVisible(false);
-        readyQueueList.setCellFactory(lv -> criarCelulaTarefa(false));
-        waitingQueueList.setCellFactory(lv -> criarCelulaTarefa(true));
+        readyQueueList.setCellFactory(_ -> criarCelulaTarefa(false));
+        waitingQueueList.setCellFactory(_ -> criarCelulaTarefa(true));
 
         // desabilita stop ao iniciar
         btnStop.setDisable(true);
@@ -103,7 +103,7 @@ public class DashboardController {
             waitingQueueList.getItems().clear();
             waitSeries.getData().clear();
             utilizationSeries.getData().clear();
-            summaryArea.clear();
+
         });
     }
 
@@ -112,7 +112,7 @@ public class DashboardController {
         if (uiUpdateTimeline != null) {
             uiUpdateTimeline.stop();
         }
-        uiUpdateTimeline = new Timeline(new KeyFrame(Duration.millis(500), event -> refreshDashboard()));
+        uiUpdateTimeline = new Timeline(new KeyFrame(Duration.millis(500), _ -> refreshDashboard()));
         uiUpdateTimeline.setCycleCount(Timeline.INDEFINITE);
         uiUpdateTimeline.play();
     }
@@ -128,8 +128,7 @@ public class DashboardController {
         // Coleta tarefas prontas e bloqueadas
         // Atualiza filas visuais
         // Atualiza cards dos servidores
-        // Atualiza métricas no summaryArea
-        // Atualiza gráfico de utilização
+        // Atualiza gráficos de utilização
         if (simuladorController.getCluster() == null || simuladorController.getMotor() == null) {
             return;
         }
@@ -170,33 +169,15 @@ public class DashboardController {
         double vazao = simuladorController.getVazao();
         double tempoMedioProcessamento = simuladorController.getTempoMedioProcessamento();
 
-        String summaryText = String.join("\n",
-                "── Tempo ──────────────────────",
-                "Espera média:         " + String.format("%.0f ms", mediaEspera),
-                "Processamento médio:  " + String.format("%.0f ms", tempoMedioProcessamento),
-                "",
-                "── Throughput ─────────────────",
-                "Vazão:                " + String.format("%.1f tarefas/min", vazao),
-                "Concluídas:           " + concluido,
-                "Total no sistema:     " + totalTarefas,
-                "",
-                "── Filas ──────────────────────",
-                "Prontas:              " + readyTasks.size(),
-                "Bloqueadas:           " + waitingTasks.size(),
-                "",
-                "── Recursos ───────────────────",
-                "Utilização média:     " + String.format("%.1f%%", utilizacaoMedia));
-
         Platform.runLater(() -> {
             metricConcluidas.setText(String.valueOf(concluido));
             metricVazao.setText(String.format("%.1f /min", vazao));
+            metricTotal.setText(String.valueOf(totalTarefas));
             metricEspera.setText(String.format("%.0f ms", mediaEspera));
-            metricProcessamento.setText("proc: " + String.format("%.0f ms", tempoMedioProcessamento));
+            metricProcessamento.setText(String.format("%.0f ms", tempoMedioProcessamento));
             metricUtilizacao.setText(String.format("%.1f%%", utilizacaoMedia));
             metricBloqueadas.setText(String.valueOf(waitingTasks.size()));
         });
-
-        Platform.runLater(() -> summaryArea.setText(summaryText));
 
         updateUtilizationChart(servidores);
 
@@ -206,7 +187,6 @@ public class DashboardController {
                 && concluido == totalTarefas) {
             appendLog("✔ Todas as " + concluido + " tarefas concluídas. Simulação encerrada.");
             onStop();
-            return;
         }
     }
 
@@ -235,13 +215,6 @@ public class DashboardController {
             }
         }
 
-    }
-
-    private String formatTask(Tarefa tarefa) {
-        return "T" + tarefa.getId()
-                + " [p=" + tarefa.getPrioridade() + "]"
-                + " status=" + tarefa.getStatus()
-                + " deps=" + tarefa.getIdsDependencias();
     }
 
     //Adiciona mensagens no TextArea de log e limita a 100 linhas.
@@ -319,7 +292,7 @@ public class DashboardController {
         Platform.runLater(() -> {
             waitSeries.getData().add(new XYChart.Data<>(x, y));
             if (waitSeries.getData().size() > 60) {
-                waitSeries.getData().remove(0);
+                waitSeries.getData().removeFirst();
             }
             // Eixo X acompanha a janela dos últimos 60 ticks
             NumberAxis xAxis = (NumberAxis) waitTimeChart.getXAxis();
