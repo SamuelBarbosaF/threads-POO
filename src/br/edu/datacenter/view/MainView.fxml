@@ -72,11 +72,19 @@
                 <Label text="Filas" />
                 <HBox spacing="8">
                     <VBox HBox.hgrow="ALWAYS">
-                        <Label text="Prontos" />
+                        <HBox spacing="4">
+                            <Label text="Prontos" style="-fx-font-weight: bold;" />
+                            <Label fx:id="readyCountLabel" text="(0)"
+                                   style="-fx-text-fill: #1D9E75; -fx-font-size: 11px;" />
+                        </HBox>
                         <ListView fx:id="readyQueueList" prefHeight="200" />
                     </VBox>
                     <VBox HBox.hgrow="ALWAYS">
-                        <Label text="Aguardando Dependências" />
+                        <HBox spacing="4">
+                            <Label text="Aguardando Dependências" style="-fx-font-weight: bold;" />
+                            <Label fx:id="waitingCountLabel" text="(0)"
+                                   style="-fx-text-fill: #A32D2D; -fx-font-size: 11px;" />
+                        </HBox>
                         <ListView fx:id="waitingQueueList" prefHeight="200" />
                     </VBox>
                 </HBox>

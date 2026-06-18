@@ -17,18 +17,16 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class DashboardController {
     //Ligação com o FXML
     @FXML private Button btnStart;
     @FXML private Button btnStop;
     @FXML private VBox serversContainer;
-    @FXML private ListView<String> readyQueueList;
-    @FXML private ListView<String> waitingQueueList;
+    @FXML private ListView<Tarefa> readyQueueList;
+    @FXML private ListView<Tarefa> waitingQueueList;
     @FXML private AreaChart<Number,Number> waitTimeChart;
     @FXML private BarChart<String,Number> utilizationChart;
     @FXML private TextArea summaryArea;
@@ -39,6 +37,8 @@ public class DashboardController {
     @FXML private Label metricProcessamento;
     @FXML private Label metricUtilizacao;
     @FXML private Label metricBloqueadas;
+    @FXML private Label readyCountLabel;
+    @FXML private Label waitingCountLabel;
 
     private int quantidadeTarefasTotal = 0;
     private int tickCount = 0;
@@ -56,6 +56,8 @@ public class DashboardController {
         utilizationChart.setAnimated(false);
         utilizationChart.getData().add(utilizationSeries);
         utilizationChart.setLegendVisible(false);
+        readyQueueList.setCellFactory(lv -> criarCelulaTarefa(false));
+        waitingQueueList.setCellFactory(lv -> criarCelulaTarefa(true));
 
         // desabilita stop ao iniciar
         btnStop.setDisable(true);
@@ -131,16 +133,17 @@ public class DashboardController {
         if (simuladorController.getCluster() == null || simuladorController.getMotor() == null) {
             return;
         }
+        //mostra tudo que não está bloqueado (pronta + executando + concluída)
+        List<Tarefa> readyTasks = simuladorController.getMotor()
+                .getTodasAsTarefasDoSistema().stream()
+                .filter(t -> t.getStatus() != StatusTarefa.BLOQUEADA)
+                .sorted(Comparator.comparing(t -> t.getStatus().name()))
+                .collect(Collectors.toList());
 
-        List<String> readyTasks = new ArrayList<>();
-        List<String> waitingTasks = new ArrayList<>();
-
-        simuladorController.getMotor().getFilaGlobalDeProntos().forEach(tarefa ->
-                readyTasks.add(formatTask(tarefa)));
-
-        simuladorController.getMotor().getTodasAsTarefasDoSistema().stream()
-                .filter(tarefa -> tarefa.getStatus() == StatusTarefa.BLOQUEADA)
-                .forEach(tarefa -> waitingTasks.add(formatTask(tarefa)));
+        List<Tarefa> waitingTasks = simuladorController.getMotor()
+                .getTodasAsTarefasDoSistema().stream()
+                .filter(t -> t.getStatus() == StatusTarefa.BLOQUEADA)
+                .collect(java.util.stream.Collectors.toList());
 
         updateReadyQueue(readyTasks);
         updateWaitingQueue(waitingTasks);
@@ -297,16 +300,18 @@ public class DashboardController {
     }
 
     // Atualiza a lista visual de tarefas prontas na tela.
-    public void updateReadyQueue(java.util.List<String> tasks) {
+    public void updateReadyQueue(List<Tarefa> tasks) {
         Platform.runLater(() -> {
             readyQueueList.getItems().setAll(tasks);
+            readyCountLabel.setText("(" + tasks.size() + ")");
         });
     }
 
     // Atualiza a lista visual de tarefas bloqueadas na tela.
-    public void updateWaitingQueue(java.util.List<String> tasks) {
+    public void updateWaitingQueue(List<Tarefa> tasks) {
         Platform.runLater(() -> {
             waitingQueueList.getItems().setAll(tasks);
+            waitingCountLabel.setText("(" + tasks.size() + ")");
         });
     }
 
@@ -323,6 +328,82 @@ public class DashboardController {
             xAxis.setUpperBound(Math.max(60, tickCount));
             xAxis.setTickUnit(10);
         });
+    }
+
+    private ListCell<Tarefa> criarCelulaTarefa(boolean mostrarDetalheBloqueio) {
+        return new ListCell<>() {
+            @Override
+            protected void updateItem(Tarefa tarefa, boolean empty) {
+                super.updateItem(tarefa, empty);
+                if (empty || tarefa == null) {
+                    setGraphic(null);
+                    return;
+                }
+
+                HBox row = new HBox(6);
+                row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                row.setPadding(new javafx.geometry.Insets(2, 4, 2, 4));
+
+                // ID
+                Label idLabel = new Label("T" + tarefa.getId());
+                idLabel.setStyle("-fx-font-weight: bold; -fx-min-width: 32px;");
+
+                // Badge de prioridade
+                int p = tarefa.getPrioridade();
+                String bg, fg, texto;
+                if (p <= 2)      { bg = "#FCEBEB"; fg = "#A32D2D"; texto = "alta"; }
+                else if (p == 3) { bg = "#FAEEDA"; fg = "#BA7517"; texto = "med";  }
+                else             { bg = "#EAF3DE"; fg = "#3B6D11"; texto = "baixa";}
+
+                Label prioLabel = new Label(texto);
+                prioLabel.setStyle(
+                        "-fx-background-color: " + bg + ";" +
+                                "-fx-text-fill: " + fg + ";" +
+                                "-fx-font-size: 10px;" +
+                                "-fx-padding: 1 6 1 6;" +
+                                "-fx-background-radius: 4;"
+                );
+
+                row.getChildren().addAll(idLabel, prioLabel);
+
+                if (mostrarDetalheBloqueio) {
+                    // Dependências pendentes
+                    Label depsLabel = new Label("dep: " + tarefa.getIdsDependencias());
+                    depsLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #888888;");
+
+                    // Tempo aguardando
+                    long esperaMs = System.currentTimeMillis() - tarefa.getTempoChegada();
+                    String tempoStr = esperaMs < 60000
+                            ? String.format("%.0fs", esperaMs / 1000.0)
+                            : String.format("%.1fmin", esperaMs / 60000.0);
+                    Label tempoLabel = new Label("⏳ " + tempoStr);
+                    tempoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #A32D2D;");
+
+                    row.getChildren().addAll(depsLabel, tempoLabel);
+                } else {
+                    // Badge de status para a fila de prontos
+                    String statusTxt, statusBg, statusFg;
+                    switch (tarefa.getStatus()) {
+                        case PRONTA     -> { statusTxt = "pronta";     statusBg = "#E1F5EE"; statusFg = "#0F6E56"; }
+                        case EXECUTANDO -> { statusTxt = "executando"; statusBg = "#E6F1FB"; statusFg = "#185FA5"; }
+                        case CONCLUIDA  -> { statusTxt = "concluída";  statusBg = "#F1EFE8"; statusFg = "#5F5E5A"; }
+                        default         -> { statusTxt = "?";          statusBg = "#F1EFE8"; statusFg = "#5F5E5A"; }
+                    }
+
+                    Label statusLabel = new Label(statusTxt);
+                    statusLabel.setStyle(
+                            "-fx-background-color: " + statusBg + ";" +
+                                    "-fx-text-fill: " + statusFg + ";" +
+                                    "-fx-font-size: 10px;" +
+                                    "-fx-padding: 1 6 1 6;" +
+                                    "-fx-background-radius: 4;"
+                    );
+                    row.getChildren().add(statusLabel);
+                }
+
+                setGraphic(row);
+            }
+        };
     }
 
 }
