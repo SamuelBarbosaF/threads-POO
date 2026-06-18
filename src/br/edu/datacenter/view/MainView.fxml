@@ -23,15 +23,9 @@
             <padding>
                 <Insets top="10" right="10" bottom="10" left="10" />
             </padding>
-            <Label text="Servidores:" />
-            <Spinner fx:id="serversSpinner" prefWidth="80" />
-            <Label text="Escalonamento:" />
-            <ChoiceBox fx:id="strategyChoice" prefWidth="180" />
-            <Label text="Taxa de Chegada:" />
-            <Spinner fx:id="arrivalRateSpinner" prefWidth="120" />
-            <Button fx:id="btnStart" text="Start" onAction="#onStart" />
-            <Button fx:id="btnPause" text="Pause" onAction="#onPause" />
-            <Button fx:id="btnStop" text="Stop" onAction="#onStop" />
+            <Label text="DataCenter Simulator" style="-fx-font-weight: bold; -fx-font-size: 14px;" />
+            <Button fx:id="btnStart" text="▶ Start" onAction="#onStart" />
+            <Button fx:id="btnStop"  text="■ Stop"  onAction="#onStop" />
         </HBox>
     </top>
     <center>

@@ -23,11 +23,7 @@ import java.util.Map;
 
 public class DashboardController {
     //Ligação com o FXML
-    @FXML private Spinner<Integer> serversSpinner;
-    @FXML private ChoiceBox<String> strategyChoice;
-    @FXML private Spinner<Integer> arrivalRateSpinner;
     @FXML private Button btnStart;
-    @FXML private Button btnPause;
     @FXML private Button btnStop;
     @FXML private VBox serversContainer;
     @FXML private ListView<String> readyQueueList;
@@ -45,16 +41,11 @@ public class DashboardController {
 
     @FXML
     public void initialize() {
-        // Configurações iniciais dos componentes, start/stop, choicebox...
-        serversSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 128, 4));
-        arrivalRateSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 1000, 100));
-        strategyChoice.getItems().addAll("RoundRobin","MenorFila","PrioridadeAging");
-        strategyChoice.getSelectionModel().selectFirst();
-
+        // Configurações iniciais dos componentes, start/stop
         waitTimeChart.getData().add(waitSeries);
 
-        // desabilita pause/stop
-        btnPause.setDisable(true);
+        // desabilita stop ao iniciar
+
         btnStop.setDisable(true);
     }
 
@@ -62,13 +53,12 @@ public class DashboardController {
     @FXML
     private void onStart() {
         btnStart.setDisable(true);
-        btnPause.setDisable(false);
         btnStop.setDisable(false);
         System.out.println("Simulação iniciada");
 
-        int quantidadeServidores = serversSpinner.getValue();
-        int capacidadeServidor = 5; // ajuste conforme necessidade
-        int quantidadeTarefas = arrivalRateSpinner.getValue();
+        int quantidadeServidores = 4;
+        int capacidadeServidor = 1; // ajuste conforme o teste
+        int quantidadeTarefas = 50;
 
         simuladorController.iniciarSimulacao(
                 quantidadeServidores,
@@ -79,18 +69,8 @@ public class DashboardController {
     }
 
     @FXML
-    private void onPause() {
-        btnStart.setDisable(false);
-        btnPause.setDisable(true);
-        System.out.println("Simulação pausada");
-        // Por enquanto, usamos stop parcial no gerador e escalonador se precisar.
-        // Precisa implementar pausa explícita no backend se quiser suspender em vez de parar.
-    }
-
-    @FXML
     private void onStop() {
         btnStart.setDisable(false);
-        btnPause.setDisable(true);
         btnStop.setDisable(true);
         tickCount = 0;
         System.out.println("Simulação parada");
@@ -159,7 +139,8 @@ public class DashboardController {
             addOrUpdateServerCard(
                     "Servidor " + servidor.getId(),
                     utilization,
-                    status + " (" + servidor.getCargaAtual() + "/" + servidor.getCapacidadeMaxima() + ")");
+                    status + " (" + servidor.getCargaAtual() + "/" + servidor.getCapacidadeMaxima() + ")",
+                    servidor.getTarefasProcessadas());
         }
 
         double mediaEspera = simuladorController.getTempoMedioEspera();
@@ -169,14 +150,25 @@ public class DashboardController {
         // Alimenta o gráfico de linha a cada tick
         tickCount++;
         addWaitTimeSample(tickCount, mediaEspera);
+        double vazao = simuladorController.getVazao();
+        double tempoMedioProcessamento = simuladorController.getTempoMedioProcessamento();
 
         String summaryText = String.join("\n",
-                "Tempo médio de espera: " + String.format("%.0f ms", mediaEspera),
-                "Utilização média: " + String.format("%.1f%%", utilizacaoMedia * 100),
-                "Tarefas concluídas: " + concluido,
-                "Total de tarefas no sistema: " + totalTarefas,
-                "Fila global pronta: " + readyTasks.size(),
-                "Bloqueadas por dependência: " + waitingTasks.size());
+                "── Tempo ──────────────────────",
+                "Espera média:         " + String.format("%.0f ms", mediaEspera),
+                "Processamento médio:  " + String.format("%.0f ms", tempoMedioProcessamento),
+                "",
+                "── Throughput ─────────────────",
+                "Vazão:                " + String.format("%.1f tarefas/min", vazao),
+                "Concluídas:           " + concluido,
+                "Total no sistema:     " + totalTarefas,
+                "",
+                "── Filas ──────────────────────",
+                "Prontas:              " + readyTasks.size(),
+                "Bloqueadas:           " + waitingTasks.size(),
+                "",
+                "── Recursos ───────────────────",
+                "Utilização média:     " + String.format("%.1f%%", utilizacaoMedia * 100));
 
         Platform.runLater(() -> summaryArea.setText(summaryText));
 
@@ -217,41 +209,42 @@ public class DashboardController {
     }
 
     //Para cada servidor, cria um card visual (se ainda não existe) ou atualiza o existente.
-    public void addOrUpdateServerCard(String serverId, double utilization, String status) {
+    public void addOrUpdateServerCard(String serverId, double utilization, String status, int tarefasProcessadas) {
         Platform.runLater(() -> {
             HBox card = serverCards.get(serverId);
             if (card == null) {
-                card = createServerCard(serverId, utilization, status);
+                card = createServerCard(serverId, utilization, status, tarefasProcessadas);
                 serverCards.put(serverId, card);
                 serversContainer.getChildren().add(card);
             } else {
-                updateServerCard(card, utilization, status);
+                updateServerCard(card, utilization, status, tarefasProcessadas);
             }
         });
     }
 
-    private HBox createServerCard(String serverId, double utilization, String status) {
+    private HBox createServerCard(String serverId, double utilization, String status, int tarefasProcessadas) {
         HBox box = new HBox(8);
         Label id = new Label(serverId);
         ProgressBar pb = new ProgressBar(utilization);
         pb.setPrefWidth(180);
         Label st = new Label(status);
+        Label tp = new Label("✔ " + tarefasProcessadas);
+        tp.setStyle("-fx-text-fill: #1D9E75; -fx-font-size: 11px;");
         HBox.setHgrow(pb, Priority.ALWAYS);
-        box.getChildren().addAll(id, pb, st);
+        box.getChildren().addAll(id, pb, st, tp);
         box.setUserData(pb); // store progressbar for updates
         return box;
     }
 
-    private void updateServerCard(HBox card, double utilization, String status) {
-        Object ud = card.getUserData();
-        if (ud instanceof ProgressBar) {
-            ((ProgressBar) ud).setProgress(utilization);
-        } else if (card.getChildren().size() >= 3 && card.getChildren().get(1) instanceof ProgressBar) {
-            ((ProgressBar) card.getChildren().get(1)).setProgress(utilization);
-        }
-        if (card.getChildren().size() >= 3 && card.getChildren().get(2) instanceof Label) {
-            ((Label) card.getChildren().get(2)).setText(status);
-        }
+    private void updateServerCard(HBox card, double utilization, String status, int tarefasProcessadas) {
+
+        ProgressBar pb = (ProgressBar) card.getChildren().get(1);
+        Label st = (Label) card.getChildren().get(2);
+        Label tp = (Label) card.getChildren().get(3);
+
+        pb.setProgress(utilization);
+        st.setText(status);
+        tp.setText("✔ " + tarefasProcessadas);
     }
 
     // Atualiza a lista visual de tarefas prontas na tela.
