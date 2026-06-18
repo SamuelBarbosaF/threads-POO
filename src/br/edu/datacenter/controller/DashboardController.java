@@ -7,8 +7,9 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.scene.chart.AreaChart;
 import javafx.scene.chart.BarChart;
-import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
@@ -28,24 +29,35 @@ public class DashboardController {
     @FXML private VBox serversContainer;
     @FXML private ListView<String> readyQueueList;
     @FXML private ListView<String> waitingQueueList;
-    @FXML private LineChart<Number,Number> waitTimeChart;
+    @FXML private AreaChart<Number,Number> waitTimeChart;
     @FXML private BarChart<String,Number> utilizationChart;
     @FXML private TextArea summaryArea;
     @FXML private TextArea logArea;
+    @FXML private Label metricConcluidas;
+    @FXML private Label metricVazao;
+    @FXML private Label metricEspera;
+    @FXML private Label metricProcessamento;
+    @FXML private Label metricUtilizacao;
+    @FXML private Label metricBloqueadas;
 
+    private int quantidadeTarefasTotal = 0;
     private int tickCount = 0;
     private Timeline uiUpdateTimeline; //timer p atualização
     private final SimuladorController simuladorController = new SimuladorController();
     private final Map<String, HBox> serverCards = new HashMap<>();
     private final XYChart.Series<Number, Number> waitSeries = new XYChart.Series<>(); //p gráfico do tempo de espera
+    private final XYChart.Series<String, Number> utilizationSeries = new XYChart.Series<>();
 
     @FXML
     public void initialize() {
         // Configurações iniciais dos componentes, start/stop
         waitTimeChart.getData().add(waitSeries);
+        waitTimeChart.setAnimated(false);
+        utilizationChart.setAnimated(false);
+        utilizationChart.getData().add(utilizationSeries);
+        utilizationChart.setLegendVisible(false);
 
         // desabilita stop ao iniciar
-
         btnStop.setDisable(true);
     }
 
@@ -59,6 +71,7 @@ public class DashboardController {
         int quantidadeServidores = 4;
         int capacidadeServidor = 1; // ajuste conforme o teste
         int quantidadeTarefas = 50;
+        quantidadeTarefasTotal = 50;
 
         simuladorController.iniciarSimulacao(
                 quantidadeServidores,
@@ -87,7 +100,7 @@ public class DashboardController {
             readyQueueList.getItems().clear();
             waitingQueueList.getItems().clear();
             waitSeries.getData().clear();
-            utilizationChart.getData().clear();
+            utilizationSeries.getData().clear();
             summaryArea.clear();
         });
     }
@@ -147,6 +160,7 @@ public class DashboardController {
         double utilizacaoMedia = simuladorController.getUtilizacaoMedia();
         int concluido = simuladorController.getQuantidadeConcluidas();
         int totalTarefas = simuladorController.getMotor().getTodasAsTarefasDoSistema().size();
+
         // Alimenta o gráfico de linha a cada tick
         tickCount++;
         addWaitTimeSample(tickCount, mediaEspera);
@@ -168,21 +182,56 @@ public class DashboardController {
                 "Bloqueadas:           " + waitingTasks.size(),
                 "",
                 "── Recursos ───────────────────",
-                "Utilização média:     " + String.format("%.1f%%", utilizacaoMedia * 100));
+                "Utilização média:     " + String.format("%.1f%%", utilizacaoMedia));
+
+        Platform.runLater(() -> {
+            metricConcluidas.setText(String.valueOf(concluido));
+            metricVazao.setText(String.format("%.1f /min", vazao));
+            metricEspera.setText(String.format("%.0f ms", mediaEspera));
+            metricProcessamento.setText("proc: " + String.format("%.0f ms", tempoMedioProcessamento));
+            metricUtilizacao.setText(String.format("%.1f%%", utilizacaoMedia));
+            metricBloqueadas.setText(String.valueOf(waitingTasks.size()));
+        });
 
         Platform.runLater(() -> summaryArea.setText(summaryText));
 
         updateUtilizationChart(servidores);
+
+        // Auto-stop quando todas as tarefas forem concluídas
+        if (quantidadeTarefasTotal > 0
+                && totalTarefas >= quantidadeTarefasTotal
+                && concluido == totalTarefas) {
+            appendLog("✔ Todas as " + concluido + " tarefas concluídas. Simulação encerrada.");
+            onStop();
+            return;
+        }
     }
 
     private void updateUtilizationChart(List<Servidor> servidores) {
-        utilizationChart.getData().clear();
-        XYChart.Series<String, Number> series = new XYChart.Series<>();
-        for (Servidor servidor : servidores) {
-            double utilization = Math.min(1.0, servidor.getCargaAtual() / (double) servidor.getCapacidadeMaxima());
-            series.getData().add(new XYChart.Data<>("S" + servidor.getId(), utilization * 100));
+        // Cria os itens na primeira vez
+        if (utilizationSeries.getData().isEmpty()) {
+            for (Servidor servidor : servidores) {
+                utilizationSeries.getData().add(
+                        new XYChart.Data<>("S" + servidor.getId(), 0));
+            }
         }
-        utilizationChart.getData().add(series);
+
+        // Atualiza valores e cores semanticamente
+        for (int i = 0; i < servidores.size() && i < utilizationSeries.getData().size(); i++) {
+            double percent = Math.min(1.0, servidores.get(i).getCargaAtual()
+                    / (double) servidores.get(i).getCapacidadeMaxima()) * 100;
+
+            XYChart.Data<String, Number> data = utilizationSeries.getData().get(i);
+            data.setYValue(percent);
+
+            if (data.getNode() != null) {
+                String cor = percent >= 80 ? "#A32D2D"   // vermelho — sobrecarregado
+                        : percent >= 50 ? "#BA7517"   // laranja  — ocupado
+                        :                 "#1D9E75";  // verde    — ok
+                data.getNode().setStyle("-fx-bar-fill: " + cor + ";");
+            }
+        }
+
     }
 
     private String formatTask(Tarefa tarefa) {
@@ -267,6 +316,12 @@ public class DashboardController {
             if (waitSeries.getData().size() > 60) {
                 waitSeries.getData().remove(0);
             }
+            // Eixo X acompanha a janela dos últimos 60 ticks
+            NumberAxis xAxis = (NumberAxis) waitTimeChart.getXAxis();
+            xAxis.setAutoRanging(false);
+            xAxis.setLowerBound(Math.max(0, tickCount - 60));
+            xAxis.setUpperBound(Math.max(60, tickCount));
+            xAxis.setTickUnit(10);
         });
     }
 

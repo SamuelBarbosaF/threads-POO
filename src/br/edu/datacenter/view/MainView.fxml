@@ -17,16 +17,49 @@
 <?import javafx.scene.layout.VBox?>
 <?import java.lang.String?>
 
+<?import javafx.scene.chart.AreaChart?>
 <BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="br.edu.datacenter.controller.DashboardController">
     <top>
-        <HBox spacing="10">
-            <padding>
-                <Insets top="10" right="10" bottom="10" left="10" />
-            </padding>
-            <Label text="DataCenter Simulator" style="-fx-font-weight: bold; -fx-font-size: 14px;" />
-            <Button fx:id="btnStart" text="▶ Start" onAction="#onStart" />
-            <Button fx:id="btnStop"  text="■ Stop"  onAction="#onStop" />
-        </HBox>
+        <VBox style="-fx-border-color: transparent transparent #cccccc transparent; -fx-border-width: 1;">
+            <HBox spacing="10">
+                <padding>
+                    <Insets top="10" right="10" bottom="8" left="10" />
+                </padding>
+                <Label text="DataCenter Simulator" style="-fx-font-weight: bold; -fx-font-size: 14px;" />
+                <Button fx:id="btnStart" text="▶ Start" onAction="#onStart" />
+                <Button fx:id="btnStop"  text="■ Stop"  onAction="#onStop" />
+            </HBox>
+            <HBox spacing="10">
+                <padding>
+                    <Insets top="0" right="10" bottom="10" left="10" />
+                </padding>
+
+                <VBox HBox.hgrow="ALWAYS" style="-fx-background-color: #f4f4f4; -fx-background-radius: 8; -fx-padding: 8 12 8 12;">
+                    <Label text="CONCLUÍDAS" style="-fx-font-size: 10px; -fx-text-fill: #888888;" />
+                    <Label fx:id="metricConcluidas" text="0" style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #1D9E75;" />
+                    <Label fx:id="metricVazao" text="0.0 /min" style="-fx-font-size: 10px; -fx-text-fill: #888888;" />
+                </VBox>
+
+                <VBox HBox.hgrow="ALWAYS" style="-fx-background-color: #f4f4f4; -fx-background-radius: 8; -fx-padding: 8 12 8 12;">
+                    <Label text="ESPERA MÉDIA" style="-fx-font-size: 10px; -fx-text-fill: #888888;" />
+                    <Label fx:id="metricEspera" text="0 ms" style="-fx-font-size: 22px; -fx-font-weight: bold;" />
+                    <Label fx:id="metricProcessamento" text="proc: 0 ms" style="-fx-font-size: 10px; -fx-text-fill: #888888;" />
+                </VBox>
+
+                <VBox HBox.hgrow="ALWAYS" style="-fx-background-color: #f4f4f4; -fx-background-radius: 8; -fx-padding: 8 12 8 12;">
+                    <Label text="UTILIZAÇÃO MÉDIA" style="-fx-font-size: 10px; -fx-text-fill: #888888;" />
+                    <Label fx:id="metricUtilizacao" text="0%" style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #BA7517;" />
+                    <Label text=" " style="-fx-font-size: 10px;" />
+                </VBox>
+
+                <VBox HBox.hgrow="ALWAYS" style="-fx-background-color: #f4f4f4; -fx-background-radius: 8; -fx-padding: 8 12 8 12;">
+                    <Label text="BLOQUEADAS" style="-fx-font-size: 10px; -fx-text-fill: #888888;" />
+                    <Label fx:id="metricBloqueadas" text="0" style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #A32D2D;" />
+                    <Label text="aguard. dependências" style="-fx-font-size: 10px; -fx-text-fill: #888888;" />
+                </VBox>
+
+            </HBox>
+        </VBox>
     </top>
     <center>
         <SplitPane dividerPositions="0.5">
@@ -53,14 +86,14 @@
                     <Insets top="10" right="10" bottom="10" left="10" />
                 </padding>
                 <Label text="Métricas" />
-                <LineChart fx:id="waitTimeChart" title="Tempo Médio de Espera">
+                <AreaChart fx:id="waitTimeChart" title="Tempo Médio de Espera">
                     <xAxis>
                         <NumberAxis />
                     </xAxis>
                     <yAxis>
                         <NumberAxis />
                     </yAxis>
-                </LineChart>
+                </AreaChart>
                 <BarChart fx:id="utilizationChart" title="Utilização dos Servidores">
                     <xAxis>
                         <CategoryAxis />
