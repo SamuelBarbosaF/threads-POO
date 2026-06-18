@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.chart.BarChart?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.LineChart?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ChoiceBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.control.Spinner?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import java.lang.String?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="br.edu.datacenter.controller.DashboardController">
+    <top>
+        <HBox spacing="10">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10" />
+            </padding>
+            <Label text="Servidores:" />
+            <Spinner fx:id="serversSpinner" prefWidth="80" />
+            <Label text="Escalonamento:" />
+            <ChoiceBox fx:id="strategyChoice" prefWidth="180" />
+            <Label text="Taxa de Chegada:" />
+            <Spinner fx:id="arrivalRateSpinner" prefWidth="120" />
+            <Button fx:id="btnStart" text="Start" onAction="#onStart" />
+            <Button fx:id="btnPause" text="Pause" onAction="#onPause" />
+            <Button fx:id="btnStop" text="Stop" onAction="#onStop" />
+        </HBox>
+    </top>
+    <center>
+        <SplitPane dividerPositions="0.5">
+            <VBox>
+                <padding>
+                    <Insets top="10" right="10" bottom="10" left="10" />
+                </padding>
+                <Label text="Servidores" />
+                <VBox fx:id="serversContainer" spacing="6" />
+                <Label text="Filas" />
+                <HBox spacing="8">
+                    <VBox HBox.hgrow="ALWAYS">
+                        <Label text="Prontos" />
+                        <ListView fx:id="readyQueueList" prefHeight="200" />
+                    </VBox>
+                    <VBox HBox.hgrow="ALWAYS">
+                        <Label text="Aguardando Dependências" />
+                        <ListView fx:id="waitingQueueList" prefHeight="200" />
+                    </VBox>
+                </HBox>
+            </VBox>
+            <VBox spacing="8">
+                <padding>
+                    <Insets top="10" right="10" bottom="10" left="10" />
+                </padding>
+                <Label text="Métricas" />
+                <LineChart fx:id="waitTimeChart" title="Tempo Médio de Espera">
+                    <xAxis>
+                        <NumberAxis />
+                    </xAxis>
+                    <yAxis>
+                        <NumberAxis />
+                    </yAxis>
+                </LineChart>
+                <BarChart fx:id="utilizationChart" title="Utilização dos Servidores">
+                    <xAxis>
+                        <CategoryAxis />
+                    </xAxis>
+                    <yAxis>
+                        <NumberAxis />
+                    </yAxis>
+                </BarChart>
+                <Label text="Resumo da Simulação" />
+                <TextArea fx:id="summaryArea" editable="false" wrapText="true" prefHeight="180" />
+            </VBox>
+        </SplitPane>
+    </center>
+    <bottom>
+        <VBox spacing="5">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10" />
+            </padding>
+            <Label text="Console de Eventos" />
+            <TextArea fx:id="logArea" editable="false" wrapText="true" prefRowCount="6" />
+        </VBox>
+    </bottom>
+    <stylesheets>
+        <String fx:value="/br/edu/datacenter/view/estilos.css" />
+    </stylesheets>
+</BorderPane>
