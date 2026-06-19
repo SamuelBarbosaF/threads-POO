@@ -18,7 +18,6 @@ import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class DashboardController {
     //Ligação com o FXML
@@ -45,6 +44,11 @@ public class DashboardController {
     private Timeline uiUpdateTimeline; //timer p atualização
     private final SimuladorController simuladorController = new SimuladorController();
     private final Map<String, HBox> serverCards = new HashMap<>();
+    // Hash com os IDs de todas as tarefas já concluídas. Como conclusão é definitiva (uma tarefa
+    // nunca "desconclui"), essa hash só cresce e serve de fonte da verdade mais estável que o
+    // status lido a cada tick — corrige o caso em que uma tarefa fica presa em BLOQUEADA na tela
+    // mesmo após todas as dependências terem terminado (race condition em execuções rápidas).
+    private final Set<Integer> tarefasConcluidasIds = new HashSet<>();
     private final XYChart.Series<Number, Number> waitSeries = new XYChart.Series<>(); //p gráfico do tempo de espera
     private final XYChart.Series<String, Number> utilizationSeries = new XYChart.Series<>();
 
@@ -103,6 +107,7 @@ public class DashboardController {
             waitingQueueList.getItems().clear();
             waitSeries.getData().clear();
             utilizationSeries.getData().clear();
+            tarefasConcluidasIds.clear();
 
         });
     }
@@ -132,17 +137,34 @@ public class DashboardController {
         if (simuladorController.getCluster() == null || simuladorController.getMotor() == null) {
             return;
         }
-        //mostra tudo que não está bloqueado (pronta + executando + concluída)
-        List<Tarefa> readyTasks = simuladorController.getMotor()
-                .getTodasAsTarefasDoSistema().stream()
-                .filter(t -> t.getStatus() != StatusTarefa.BLOQUEADA)
-                .sorted(Comparator.comparing(t -> t.getStatus().name()))
-                .collect(Collectors.toList());
+        // Snapshot único da lista de tarefas: evita que o motor (rodando seu próprio tick/thread)
+        // altere o status de uma tarefa ENTRE a leitura da fila de prontos e a leitura da fila de
+        // bloqueados — essa janela entre duas leituras separadas era a causa da inconsistência
+        // visual (tarefa presa em "bloqueada" mesmo já liberada no motor).
+        List<Tarefa> snapshot = new ArrayList<>(
+                simuladorController.getMotor().getTodasAsTarefasDoSistema());
 
-        List<Tarefa> waitingTasks = simuladorController.getMotor()
-                .getTodasAsTarefasDoSistema().stream()
-                .filter(t -> t.getStatus() == StatusTarefa.BLOQUEADA)
-                .collect(java.util.stream.Collectors.toList());
+        // Atualiza a hash de concluídas a partir do snapshot atual.
+        for (Tarefa t : snapshot) {
+            if (t.getStatus() == StatusTarefa.CONCLUIDA) {
+                tarefasConcluidasIds.add(t.getId());
+            }
+        }
+
+        // Mostra na fila de prontos tudo que não está bloqueado (pronta + executando + concluída)
+        // E TAMBÉM qualquer tarefa que o motor ainda reporte como BLOQUEADA mas cujas dependências
+        // já estejam todas na hash de concluídos — é exatamente esse caso que destrava o "fantasma"
+        // na fila de bloqueados.
+        List<Tarefa> readyTasks = new ArrayList<>();
+        List<Tarefa> waitingTasks = new ArrayList<>();
+        for (Tarefa t : snapshot) {
+            if (t.getStatus() == StatusTarefa.BLOQUEADA && !dependenciasSatisfeitas(t)) {
+                waitingTasks.add(t);
+            } else {
+                readyTasks.add(t);
+            }
+        }
+        readyTasks.sort(Comparator.comparing(t -> t.getStatus().name()));
 
         updateReadyQueue(readyTasks);
         updateWaitingQueue(waitingTasks);
@@ -154,14 +176,14 @@ public class DashboardController {
             addOrUpdateServerCard(
                     "Servidor " + servidor.getId(),
                     utilization,
-                    status + " (" + servidor.getCargaAtual() + "/" + servidor.getCapacidadeMaxima() + ")",
+                    status,
                     servidor.getTarefasProcessadas());
         }
 
         double mediaEspera = simuladorController.getTempoMedioEspera();
         double utilizacaoMedia = simuladorController.getUtilizacaoMedia();
         int concluido = simuladorController.getQuantidadeConcluidas();
-        int totalTarefas = simuladorController.getMotor().getTodasAsTarefasDoSistema().size();
+        int totalTarefas = snapshot.size();
 
         // Alimenta o gráfico de linha a cada tick
         tickCount++;
@@ -188,6 +210,19 @@ public class DashboardController {
             appendLog("✔ Todas as " + concluido + " tarefas concluídas. Simulação encerrada.");
             onStop();
         }
+    }
+
+    // Compara os IDs de dependência de uma tarefa bloqueada com a hash de concluídos.
+    // Se TODOS os IDs de dependência já estiverem na hash, a tarefa é tratada como liberada
+    // na visualização, mesmo que o status reportado pelo motor ainda esteja atrasado.
+    private boolean dependenciasSatisfeitas(Tarefa tarefa) {
+        Collection<Integer> deps = tarefa.getIdsDependencias();
+        if (deps == null || deps.isEmpty()) {
+            // BLOQUEADA sem dependências pendentes listadas: trata como bloqueio real
+            // (provavelmente esperando recurso/servidor, não dependência de outra tarefa).
+            return false;
+        }
+        return tarefasConcluidasIds.containsAll(deps);
     }
 
     private void updateUtilizationChart(List<Servidor> servidores) {
