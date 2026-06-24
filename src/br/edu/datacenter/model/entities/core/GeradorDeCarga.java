@@ -53,10 +53,10 @@ public class GeradorDeCarga implements Runnable {
         this.contadorId = 1;
 
         // Define intervalo minimo de 0,5 segundo.
-        this.intervaloMinimoMs = 500;
+        this.intervaloMinimoMs = 100;
 
         // Define intervalo maximo de 2 segundos.
-        this.intervaloMaximoMs = 2000;
+        this.intervaloMaximoMs = 500;
     }
 
     /**

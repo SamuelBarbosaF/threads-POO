@@ -70,7 +70,7 @@ public class DashboardController {
         System.out.println("Simulação iniciada");
 
         int quantidadeServidores = 4;
-        int capacidadeServidor = 1; // ajuste conforme o teste
+        int capacidadeServidor = 10; // ajuste conforme o teste
         int quantidadeTarefas = 50;
         quantidadeTarefasTotal = 50;
 
@@ -157,7 +157,7 @@ public class DashboardController {
             addOrUpdateServerCard(
                     "Servidor " + servidor.getId(),
                     utilization,
-                    status,
+                    status + " (" + servidor.getFilaLocal().size() + ")",
                     servidor.getTarefasProcessadas());
         }
 
